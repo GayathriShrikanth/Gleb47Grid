@@ -1,0 +1,772 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Processing Tool</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .btn-step {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        #imageContainer {
+            position: relative;
+            overflow: auto;
+            max-height: 80vh;
+            cursor: crosshair;
+        }
+        #processingImage {
+            max-width: 100%;
+        }
+        #controlPanel {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .step-section {
+            display: none;
+        }
+        .step-active {
+            display: block;
+        }
+        .loading {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        #pointCounter {
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        .progress-container {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+        }
+        .progress-step {
+            width: 100%;
+            display: flex;
+            margin-bottom: 10px;
+        }
+        .step-bubble {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: #dee2e6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-right: 10px;
+        }
+        .step-bubble.active {
+            background-color: #0d6efd;
+            color: white;
+        }
+        .step-bubble.completed {
+            background-color: #198754;
+            color: white;
+        }
+        .step-text {
+            line-height: 30px;
+        }
+        .color-legend {
+            margin-top: 15px;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .color-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .color-sample {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+            border: 1px solid #dee2e6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid py-4">
+        <h1 class="text-center mb-4">Image Processing Tool</h1>
+        
+        <div class="row">
+            <div class="col-md-8">
+                <div id="imageContainer" class="mb-3">
+                    <img id="processingImage" src="/static/placeholder.jpg" alt="Upload an image">
+                    <div id="loading" class="loading d-none">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div id="controlPanel">
+                    <h3>Controls</h3>
+                    
+                    <!-- Progress Tracker -->
+                    <div class="progress-container">
+                        <h5>Progress</h5>
+                        <div class="progress-step">
+                            <div id="step1" class="step-bubble active">1</div>
+                            <div class="step-text">Upload Image</div>
+                        </div>
+                        <div class="progress-step">
+                            <div id="step2" class="step-bubble">2</div>
+                            <div class="step-text">Adjust Threshold</div>
+                        </div>
+                        <div class="progress-step">
+                            <div id="step3" class="step-bubble">3</div>
+                            <div class="step-text">Detect Contours</div>
+                        </div>
+                        <div class="progress-step">
+                            <div id="step4" class="step-bubble">4</div>
+                            <div class="step-text">Select Points</div>
+                        </div>
+                        <div class="progress-step">
+                            <div id="step5" class="step-bubble">5</div>
+                            <div class="step-text">Show Grid</div>
+                        </div>
+                        <div class="progress-step">
+                            <div id="step6" class="step-bubble">6</div>
+                            <div class="step-text">Original With Grid</div>
+                        </div>
+                        <div class="progress-step">
+                            <div id="step7" class="step-bubble">7</div>
+                            <div class="step-text">Highlight Boxes</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Step 1: Upload -->
+                    <div id="uploadSection" class="step-section step-active">
+                        <div class="mb-3 mt-4">
+                            <label for="imageUpload" class="form-label">Select an image to upload:</label>
+                            <input class="form-control" type="file" id="imageUpload" accept=".jpg,.jpeg,.png,.bmp,.tif,.tiff">
+                        </div>
+                        <button id="uploadBtn" class="btn btn-primary btn-step">Upload</button>
+                    </div>
+                    
+                    <!-- Step 2: Threshold -->
+                    <div id="thresholdSection" class="step-section">
+                        <div class="mb-3 mt-4">
+                            <label for="thresholdSlider" class="form-label">Threshold value: <span id="thresholdValue">128</span></label>
+                            <input type="range" class="form-range" min="0" max="255" value="128" id="thresholdSlider">
+                        </div>
+                        <button id="applyThresholdBtn" class="btn btn-primary btn-step">Apply Threshold</button>
+                        <button id="showContoursBtn" class="btn btn-success btn-step">Show Contours</button>
+                    </div>
+                    
+                    <!-- Step 3: Contours -->
+                    <div id="contoursSection" class="step-section">
+                        <div class="mb-3 mt-4">
+                            <p>Click on the image to select points on the contour (max 2).</p>
+                            <div id="pointCounter">Points selected: 0/2</div>
+                        </div>
+                        <button id="hideContoursBtn" class="btn btn-danger btn-step">Hide Contours</button>
+                        <button id="resetPointsBtn" class="btn btn-warning btn-step">Reset Points</button>
+                    </div>
+                    
+                    <!-- Step 4: Grid -->
+                    <div id="gridSection" class="step-section">
+                        <div class="mb-3 mt-4">
+                            <p>Two points selected. You can now show grid lines.</p>
+                        </div>
+                        <button id="showGridBtn" class="btn btn-primary btn-step">Show Grid Lines</button>
+                        <button id="hideGridBtn" class="btn btn-danger btn-step d-none">Hide Grid Lines</button>
+                        <button id="resetPointsBtn2" class="btn btn-warning btn-step">Reset Points</button>
+                    </div>
+                    
+                    <!-- Step 5: Original -->
+                    <div id="originalSection" class="step-section">
+                        <div class="mb-3 mt-4">
+                            <p>Grid lines are displayed. You can now superimpose them on the original image.</p>
+                        </div>
+                        <button id="showOriginalBtn" class="btn btn-primary btn-step">Show on Original</button>
+                        <button id="hideOriginalBtn" class="btn btn-danger btn-step d-none">Hide Original</button>
+                        <button id="resetPointsBtn3" class="btn btn-warning btn-step">Reset Points</button>
+                    </div>
+                    
+                    <!-- Step 6: Highlight -->
+                    <div id="highlightSection" class="step-section">
+                        <div class="mb-3 mt-4">
+                            <p>Grid is superimposed on the original image. You can now highlight the boxes.</p>
+                        </div>
+                        <button id="highlightBoxesBtn" class="btn btn-primary btn-step">Highlight Boxes</button>
+                        <button id="unhighlightBoxesBtn" class="btn btn-danger btn-step d-none">Remove Highlighting</button>
+                        <button id="resetPointsBtn4" class="btn btn-warning btn-step">Reset Points</button>
+                    </div>
+                    
+                    <!-- Save Button - Always Visible -->
+                    <div class="mt-4">
+                        <button id="saveBtn" class="btn btn-success btn-step">Save Image</button>
+                    </div>
+                    
+                    <!-- Color Legend -->
+                    <div class="color-legend">
+                        <h5>Color Legend</h5>
+                        <div class="color-item">
+                            <div class="color-sample" style="background-color: rgb(0, 0, 255);"></div>
+                            <div>Path (Red)</div>
+                        </div>
+                        <div class="color-item">
+                            <div class="color-sample" style="background-color: rgb(255, 0, 127);"></div>
+                            <div>Top Line (Magenta)</div>
+                        </div>
+                        <div class="color-item">
+                            <div class="color-sample" style="background-color: rgb(0, 165, 255);"></div>
+                            <div>Bottom Line (Orange)</div>
+                        </div>
+                        <div class="color-item">
+                            <div class="color-sample" style="background-color: rgb(0, 255, 0);"></div>
+                            <div>Middle Line (Green)</div>
+                        </div>
+                        <div class="color-item">
+                            <div class="color-sample" style="background-color: rgb(255, 127, 0);"></div>
+                            <div>First Vertical (Blue-violet)</div>
+                        </div>
+                        <div class="color-item">
+                            <div class="color-sample" style="background-color: rgb(128, 0, 128);"></div>
+                            <div>Second Vertical (Purple)</div>
+                        </div>
+                        <div class="color-item">
+                            <div class="color-sample" style="background-color: rgb(34, 119, 204);"></div>
+                            <div>Highlighted Boxes (Ochre)</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Store session ID and current state
+        const sessionId = "{{ session_id }}";
+        let currentStep = "upload";
+        let pointsSelected = 0;
+        let showingContours = false;
+        let showingGrid = false;
+        let showingOriginal = false;
+        let highlightingBoxes = false;
+        
+        // DOM elements
+        const imageUpload = document.getElementById('imageUpload');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const thresholdSlider = document.getElementById('thresholdSlider');
+        const thresholdValue = document.getElementById('thresholdValue');
+        const applyThresholdBtn = document.getElementById('applyThresholdBtn');
+        const showContoursBtn = document.getElementById('showContoursBtn');
+        const hideContoursBtn = document.getElementById('hideContoursBtn');
+        const processingImage = document.getElementById('processingImage');
+        const imageContainer = document.getElementById('imageContainer');
+        const pointCounter = document.getElementById('pointCounter');
+        const resetPointsBtn = document.getElementById('resetPointsBtn');
+        const resetPointsBtn2 = document.getElementById('resetPointsBtn2');
+        const resetPointsBtn3 = document.getElementById('resetPointsBtn3');
+        const resetPointsBtn4 = document.getElementById('resetPointsBtn4');
+        const showGridBtn = document.getElementById('showGridBtn');
+        const hideGridBtn = document.getElementById('hideGridBtn');
+        const showOriginalBtn = document.getElementById('showOriginalBtn');
+        const hideOriginalBtn = document.getElementById('hideOriginalBtn');
+        const highlightBoxesBtn = document.getElementById('highlightBoxesBtn');
+        const unhighlightBoxesBtn = document.getElementById('unhighlightBoxesBtn');
+        const saveBtn = document.getElementById('saveBtn');
+        const loading = document.getElementById('loading');
+        
+        // Step sections
+        const uploadSection = document.getElementById('uploadSection');
+        const thresholdSection = document.getElementById('thresholdSection');
+        const contoursSection = document.getElementById('contoursSection');
+        const gridSection = document.getElementById('gridSection');
+        const originalSection = document.getElementById('originalSection');
+        const highlightSection = document.getElementById('highlightSection');
+        
+        // Step bubbles
+        const step1 = document.getElementById('step1');
+        const step2 = document.getElementById('step2');
+        const step3 = document.getElementById('step3');
+        const step4 = document.getElementById('step4');
+        const step5 = document.getElementById('step5');
+        const step6 = document.getElementById('step6');
+        const step7 = document.getElementById('step7');
+        
+        // Event listeners
+        thresholdSlider.addEventListener('input', function() {
+            thresholdValue.textContent = this.value;
+        });
+        
+        // File upload
+        uploadBtn.addEventListener('click', function() {
+            if (imageUpload.files.length === 0) {
+                alert('Please select a file first');
+                return;
+            }
+            
+            const file = imageUpload.files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            showLoading();
+            
+            fetch(`/upload/${sessionId}`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    processingImage.src = `/static/processed/${data.processed}?${new Date().getTime()}`;
+                    updateStep('threshold');
+                } else {
+                    alert(`Error: ${data.error}`);
+                }
+                hideLoading();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while uploading the image');
+                hideLoading();
+            });
+        });
+        
+        // Apply threshold
+        applyThresholdBtn.addEventListener('click', function() {
+            const threshold = thresholdSlider.value;
+            const formData = new FormData();
+            formData.append('threshold', threshold);
+            
+            showLoading();
+            
+            fetch(`/threshold/${sessionId}`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    processingImage.src = `/static/processed/${data.processed}?${new Date().getTime()}`;
+                } else {
+                    alert(`Error: ${data.error}`);
+                }
+                hideLoading();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while applying threshold');
+                hideLoading();
+            });
+        });
+        
+        // Show contours
+        showContoursBtn.addEventListener('click', function() {
+            showLoading();
+            
+            fetch(`/toggle_contours/${sessionId}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showingContours = data.show_contours;
+                    processingImage.src = `/static/processed/${data.processed}?${new Date().getTime()}`;
+                    updateStep('contours');
+                } else {
+                    alert(`Error: ${data.error}`);
+                }
+                hideLoading();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while toggling contours');
+                hideLoading();
+            });
+        });
+        
+        // Hide contours
+        hideContoursBtn.addEventListener('click', function() {
+            showLoading();
+            
+            fetch(`/toggle_contours/${sessionId}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showingContours = data.show_contours;
+                    processingImage.src = `/static/processed/${data.processed}?${new Date().getTime()}`;
+                    updateStep('threshold');
+                } else {
+                    alert(`Error: ${data.error}`);
+                }
+                hideLoading();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while toggling contours');
+                hideLoading();
+            });
+        });
+        
+        // Reset points
+        function resetPoints() {
+            showLoading();
+            
+            fetch(`/reset/${sessionId}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    processingImage.src = `/static/processed/${data.processed}?${new Date().getTime()}`;
+                    pointsSelected = 0;
+                    pointCounter.textContent = `Points selected: ${pointsSelected}/2`;
+                    updateStep('contours');
+                } else {
+                    alert(`Error: ${data.error}`);
+                }
+                hideLoading();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while resetting points');
+                hideLoading();
+            });
+        }
+        
+        resetPointsBtn.addEventListener('click', resetPoints);
+        resetPointsBtn2.addEventListener('click', resetPoints);
+        resetPointsBtn3.addEventListener('click', resetPoints);
+        resetPointsBtn4.addEventListener('click', resetPoints);
+        
+        // Select points on the image
+        imageContainer.addEventListener('click', function(e) {
+            if (currentStep !== 'contours' || pointsSelected >= 2) return;
+            
+            // Get click coordinates relative to the image
+            const rect = processingImage.getBoundingClientRect();
+            const scaleX = processingImage.naturalWidth / processingImage.width;
+            const scaleY = processingImage.naturalHeight / processingImage.height;
+            
+            const x = Math.round((e.clientX - rect.left) * scaleX);
+            const y = Math.round((e.clientY - rect.top) * scaleY);
+            
+            const formData = new FormData();
+            formData.append('x', x);
+            formData.append('y', y);
+            
+            showLoading();
+            
+            fetch(`/select_point/${sessionId}`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    processingImage.src = `/static/processed/${data.processed}?${new Date().getTime()}`;
+                    pointsSelected = data.point_count;
+                    pointCounter.textContent = `Points selected: ${pointsSelected}/2`;
+                    
+                    if (pointsSelected === 2) {
+                        updateStep('grid');
+                    }
+                } else {
+                    alert(`Error: ${data.error}`);
+                }
+                hideLoading();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while selecting a point');
+                hideLoading();
+            });
+        });
+        
+        // Show grid lines
+        showGridBtn.addEventListener('click', function() {
+            showLoading();
+            
+            fetch(`/toggle_grid/${sessionId}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showingGrid = data.show_grid_lines;
+                    processingImage.src = `/static/processed/${data.processed}?${new Date().getTime()}`;
+                    showGridBtn.classList.add('d-none');
+                    hideGridBtn.classList.remove('d-none');
+                    updateStep('original');
+                } else {
+                    alert(`Error: ${data.error}`);
+                }
+                hideLoading();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while toggling grid lines');
+                hideLoading();
+            });
+        });
+        
+        // Hide grid lines
+        hideGridBtn.addEventListener('click', function() {
+            showLoading();
+            
+            fetch(`/toggle_grid/${sessionId}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showingGrid = data.show_grid_lines;
+                    processingImage.src = `/static/processed/${data.processed}?${new Date().getTime()}`;
+                    hideGridBtn.classList.add('d-none');
+                    showGridBtn.classList.remove('d-none');
+                    updateStep('grid');
+                } else {
+                    alert(`Error: ${data.error}`);
+                }
+                hideLoading();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while toggling grid lines');
+                hideLoading();
+            });
+        });
+        
+        // Show original with grid
+        showOriginalBtn.addEventListener('click', function() {
+            showLoading();
+            
+            fetch(`/toggle_original/${sessionId}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showingOriginal = data.show_original_with_grid;
+                    processingImage.src = `/static/processed/${data.processed}?${new Date().getTime()}`;
+                    showOriginalBtn.classList.add('d-none');
+                    hideOriginalBtn.classList.remove('d-none');
+                    updateStep('highlight');
+                } else {
+                    alert(`Error: ${data.error}`);
+                }
+                hideLoading();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while toggling original view');
+                hideLoading();
+            });
+        });
+        
+        // Hide original with grid
+        hideOriginalBtn.addEventListener('click', function() {
+            showLoading();
+            
+            fetch(`/toggle_original/${sessionId}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showingOriginal = data.show_original_with_grid;
+                    processingImage.src = `/static/processed/${data.processed}?${new Date().getTime()}`;
+                    hideOriginalBtn.classList.add('d-none');
+                    showOriginalBtn.classList.remove('d-none');
+                    updateStep('original');
+                } else {
+                    alert(`Error: ${data.error}`);
+                }
+                hideLoading();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while toggling original view');
+                hideLoading();
+            });
+        });
+        
+        // Highlight boxes
+        highlightBoxesBtn.addEventListener('click', function() {
+            showLoading();
+            
+            fetch(`/toggle_highlight/${sessionId}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    highlightingBoxes = data.highlight_grid_boxes;
+                    processingImage.src = `/static/processed/${data.processed}?${new Date().getTime()}`;
+                    highlightBoxesBtn.classList.add('d-none');
+                    unhighlightBoxesBtn.classList.remove('d-none');
+                } else {
+                    alert(`Error: ${data.error}`);
+                }
+                hideLoading();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while toggling highlighting');
+                hideLoading();
+            });
+        });
+        
+        // Unhighlight boxes
+        unhighlightBoxesBtn.addEventListener('click', function() {
+            showLoading();
+            
+            fetch(`/toggle_highlight/${sessionId}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    highlightingBoxes = data.highlight_grid_boxes;
+                    processingImage.src = `/static/processed/${data.processed}?${new Date().getTime()}`;
+                    unhighlightBoxesBtn.classList.add('d-none');
+                    highlightBoxesBtn.classList.remove('d-none');
+                } else {
+                    alert(`Error: ${data.error}`);
+                }
+                hideLoading();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while toggling highlighting');
+                hideLoading();
+            });
+        });
+        
+        // Save image
+        saveBtn.addEventListener('click', function() {
+            showLoading();
+            
+            fetch(`/save/${sessionId}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Create a download link
+                    const a = document.createElement('a');
+                    a.href = data.download_url;
+                    a.download = 'processed_image.jpg';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                } else {
+                    alert(`Error: ${data.error}`);
+                }
+                hideLoading();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while saving the image');
+                hideLoading();
+            });
+        });
+        
+        // Utility functions
+        function showLoading() {
+            loading.classList.remove('d-none');
+        }
+        
+        function hideLoading() {
+            loading.classList.add('d-none');
+        }
+        
+        function updateStep(step) {
+            currentStep = step;
+            
+            // Hide all sections
+            uploadSection.classList.remove('step-active');
+            thresholdSection.classList.remove('step-active');
+            contoursSection.classList.remove('step-active');
+            gridSection.classList.remove('step-active');
+            originalSection.classList.remove('step-active');
+            highlightSection.classList.remove('step-active');
+            
+            // Reset all step bubbles
+            step1.className = 'step-bubble';
+            step2.className = 'step-bubble';
+            step3.className = 'step-bubble';
+            step4.className = 'step-bubble';
+            step5.className = 'step-bubble';
+            step6.className = 'step-bubble';
+            step7.className = 'step-bubble';
+            
+            // Show appropriate section and update step bubbles
+            switch(step) {
+                case 'upload':
+                    uploadSection.classList.add('step-active');
+                    step1.className = 'step-bubble active';
+                    break;
+                case 'threshold':
+                    thresholdSection.classList.add('step-active');
+                    step1.className = 'step-bubble completed';
+                    step2.className = 'step-bubble active';
+                    break;
+                case 'contours':
+                    contoursSection.classList.add('step-active');
+                    step1.className = 'step-bubble completed';
+                    step2.className = 'step-bubble completed';
+                    step3.className = 'step-bubble active';
+                    break;
+                case 'selection':
+                    contoursSection.classList.add('step-active');
+                    step1.className = 'step-bubble completed';
+                    step2.className = 'step-bubble completed';
+                    step3.className = 'step-bubble completed';
+                    step4.className = 'step-bubble active';
+                    break;
+                case 'grid':
+                    gridSection.classList.add('step-active');
+                    step1.className = 'step-bubble completed';
+                    step2.className = 'step-bubble completed';
+                    step3.className = 'step-bubble completed';
+                    step4.className = 'step-bubble completed';
+                    step5.className = 'step-bubble active';
+                    break;
+                case 'original':
+                    originalSection.classList.add('step-active');
+                    step1.className = 'step-bubble completed';
+                    step2.className = 'step-bubble completed';
+                    step3.className = 'step-bubble completed';
+                    step4.className = 'step-bubble completed';
+                    step5.className = 'step-bubble completed';
+                    step6.className = 'step-bubble active';
+                    break;
+                case 'highlight':
+                    highlightSection.classList.add('step-active');
+                    step1.className = 'step-bubble completed';
+                    step2.className = 'step-bubble completed';
+                    step3.className = 'step-bubble completed';
+                    step4.className = 'step-bubble completed';
+                    step5.className = 'step-bubble completed';
+                    step6.className = 'step-bubble completed';
+                    step7.className = 'step-bubble active';
+                    break;
+            }
+        }
+    </script>
+</body>
+</html>
