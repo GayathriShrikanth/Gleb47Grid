@@ -400,8 +400,9 @@ def draw_grid_on_original(display_img, data):
         cv2.putText(display_img, f"Middle: ({middle_intersection[0]}, {middle_intersection[1]})", 
                     (10, 90), font, 0.7, (255, 255, 255), 2)
 
+
 def highlight_boxes(display_img, data):
-    """Highlight the box between middle and bottom horizontal lines, and a box of the same size to its right"""
+    """Highlight the boxes between the two vertical lines, under the middle and bottom horizontal lines"""
     path = data['current_path']
     
     if not path:
@@ -427,12 +428,12 @@ def highlight_boxes(display_img, data):
     center_box_top_left = (int(middle_intersection[0]), int(middle_y))
     center_box_bottom_right = (int(topmost_point[0]), int(bottommost_left_point[1]))
     
-    # Calculate the width of the center box
-    box_width = center_box_bottom_right[0] - center_box_top_left[0]
+    # Define the bottom box coordinates between the two vertical lines, below the bottom horizontal
+    # Get the height of existing box to maintain proportions
+    box_height = bottommost_left_point[1] - middle_y
     
-    # Define the right box coordinates (same size, to the right of first vertical line)
-    right_box_top_left = (int(topmost_point[0]), int(middle_y))
-    right_box_bottom_right = (int(topmost_point[0] + box_width), int(bottommost_left_point[1]))
+    bottom_box_top_left = (int(middle_intersection[0]), int(bottommost_left_point[1]))
+    bottom_box_bottom_right = (int(topmost_point[0]), int(bottommost_left_point[1] + box_height))
     
     # Create a copy of the image for overlay
     overlay = display_img.copy()
@@ -440,8 +441,8 @@ def highlight_boxes(display_img, data):
     # Fill the center box with translucent ochre
     cv2.rectangle(overlay, center_box_top_left, center_box_bottom_right, OCHRE_COLOR, -1)
     
-    # Fill the right box with translucent ochre
-    cv2.rectangle(overlay, right_box_top_left, right_box_bottom_right, OCHRE_COLOR, -1)
+    # Fill the bottom box with translucent ochre
+    cv2.rectangle(overlay, bottom_box_top_left, bottom_box_bottom_right, OCHRE_COLOR, -1)
     
     # Apply the overlay with transparency
     alpha = 0.3  # Transparency factor (0.3 = 30% opacity)
@@ -449,7 +450,7 @@ def highlight_boxes(display_img, data):
     
     # Draw borders around the boxes for better visibility
     cv2.rectangle(display_img, center_box_top_left, center_box_bottom_right, (0, 200, 255), 1)  # Orange border
-    cv2.rectangle(display_img, right_box_top_left, right_box_bottom_right, (0, 200, 255), 1)  # Orange border
+    cv2.rectangle(display_img, bottom_box_top_left, bottom_box_bottom_right, (0, 200, 255), 1)  # Orange border
 
 def find_closest_contour_point(contours, click_point):
     """Find the closest point on any contour to the clicked point"""
